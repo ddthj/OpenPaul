@@ -1,7 +1,32 @@
 from util import *
 
 
-# proportional function, curve1(x) = 1 (if x >= 0.0126), curve1(-0.0063) = -0.1250235
+def tfs(throttlespeed):
+    """time until throttle full stop"""
+    return abs(throttlespeed) / 3600 + 1 / 60
+
+
+def tdv(rel_vel):
+    """time until throttle desired velocity"""
+    rate = 2100 if rel_vel > 0 else 9000
+    return abs(rel_vel) / rate + 1 / 99
+
+
+def pfs(pitchspeed):
+    """time until pitch full stop"""
+    return abs(pitchspeed) / 66 + 1 / 60
+
+
+def yfs(yawspeed):
+    """time until yaw full stop"""
+    return abs(yawspeed) / 50 + 1 / 50
+
+
+def rfs(rollspeed):
+    """time until roll full stop"""
+    return abs(rollspeed) / 99 + 1 / 60
+
+
 def curve1(x):
     if x > .5:
         x = 1 - Range(x, 1)
@@ -9,41 +34,45 @@ def curve1(x):
     return Range(s, 1)
 
 
-def linear1(x):
-    return Range(x / 60, 1)
+def steer_point(ang, angvel):
+    """PD steer to point"""
+    return curve1(Range180(ang - angvel / 55, PI))
 
 
-# PD for steering
-def steer_from_angle(angle, derivative, pi=PI):
-    return curve1(Range180(angle - derivative / 19, PI) / PI)
+def throttle_point(loc, vel, brakes=1):
+    """PD throttle to point"""
+    return sign(loc - brakes * tfs(vel) * vel) * Range((abs(loc) + abs(vel)) / 60, 1)
 
 
-def time_until_full_stop(speed):
-    return abs(speed) / BRAKES_RATE + 1 / 60
+def throttle_velocity(vel, dspeed, lthrottle):
+    """PD throttle to velocity"""
+    rel_vel = dspeed - vel - lthrottle * 9
+    return Range(tdv(rel_vel) * 60 * sign(rel_vel), 1)
 
 
-def time_until_desired_velocity(relative_vel):
-    if relative_vel > 0:
-        rate = 2100
+def yaw_point(ang, angvel):
+    """PD yaw to point"""
+    return sign(Range180(ang - angvel * yfs(angvel), 1)) * Range(abs(ang) * 5 + abs(angvel), 1)
+
+
+def pitch_point(ang, angvel):
+    """PD pitch to point"""
+    return sign(Range180(-ang - angvel * pfs(angvel), 1)) * Range(abs(ang) * 5 + abs(angvel), 1)
+
+
+def roll_point(ang, angvel):
+    """PD roll to point"""
+    return sign(Range180(-ang + angvel * rfs(angvel), 1)) * Range(abs(ang) * 4 + abs(angvel), 1)
+
+
+def boost_velocity(vel, dvel, lboost=0):
+    """P velocity boost control"""
+    rel_vel = dvel - vel - lboost * 5
+    if vel < 1400:
+        if dvel < 0:
+            threshold = 800
+        else:
+            threshold = 250
     else:
-        rate = 9000
-    return abs(relative_vel) / rate
-
-
-# PD for throttling, uses a 1-dimensional location for forwards or backwards
-def throttle_to_point(location, velocity, brakes=True):
-    return sign(location - time_until_full_stop(velocity) * brakes * velocity) * linear1(abs(location) + abs(velocity))
-
-
-def throttle_velocity(velocity, desired_velocity, last_throttle):
-    relative_vel = desired_velocity - velocity - last_throttle * 9
-    return Range(time_until_desired_velocity(relative_vel) * 60 * sign(relative_vel), 1)
-
-
-def boost_velocity(velocity, desired_velocity, last_boost):
-    relative_vel = desired_velocity - velocity - last_boost * 20
-    if velocity < 1400:
-        threshold = 200
-    else:
-        threshold = 20
-    return relative_vel > threshold
+        threshold = 30
+    return rel_vel > threshold

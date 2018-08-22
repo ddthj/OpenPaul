@@ -1,69 +1,127 @@
 from util import *
+import Physics as Ph
 
 
-def pre_process(self, game):
+def pre_process(s, game):
 
-    self.game = game
-    self.player = game.gamecars[self.index]
-    self.ball = game.gameball
+    s.game = game
+    s.player = game.gamecars[s.index]
+    s.ball = game.gameball
+    s.info = game.gameInfo
 
-    # converting vector3 and rotator classes into numpy arrays
-    self.player_loc = a3(self.player.Location)
-    self.player_vel = a3(self.player.Velocity)
-    self.player_rot = a3(self.player.Rotation)
-    self.player_angvel = a3(self.player.AngularVelocity)
+    s.time = s.info.TimeSeconds
+    s.bH = s.info.bBallHasBeenHit
 
-    self.ball_loc = a3(self.ball.Location)
-    self.ball_vel = a3(self.ball.Velocity)
+    s.pL = a3(s.player.Location)
+    s.pR = a3(s.player.Rotation)
+    s.pV = a3(s.player.Velocity)
+    s.paV = a3(s.player.AngularVelocity)
+    s.pJ = s.player.bJumped
+    s.pdJ = s.player.bDoubleJumped
+    s.poG = s.player.bOnGround
+    s.pB = s.player.Boost
+    s.pS = s.player.bSuperSonic
 
-    if not hasattr(self, 'counter'):
+    s.bL = a3(s.ball.Location)
+    s.bV = a3(s.ball.Velocity)
+    s.baV = a3(s.ball.AngularVelocity)
 
-        self.counter = 0
+    s.bx, s.by, s.bz = local(s.bL, s.pL, s.pR)
+    s.bd, s.ba, s.bi = spherical(s.bx, s.by, s.bz)
+    s.iv, s.rv, s.av = local(s.paV, 0, s.pR)
+    s.pxv, s.pyv, s.pzv = local(s.pV, 0, s.pR)
+    s.pvd, s.pva, s.pvi = spherical(s.pxv, s.pyv, s.pzv)
+    s.bxv, s.byv, s.bzv = local(s.bV, 0, s.pR)
+    s.bvd, s.bva, s.bvi = spherical(s.bxv, s.byv, s.bzv)
 
-        self.throttle = self.steer = self.pitch = self.yaw = self.roll = self.jump = self.boost = self.powerslide = 0
+    s.color = -sign(s.player.Team)
 
-        self.target_loc = self.player_loc
-        self.desired_speed = MAX_CAR_SPEED
+    if not hasattr(s, 'counter'):
 
-        self.throttle_type = "point"
+        s.counter = -1
 
-        feedback(self)
+        s.throttle = s.steer = s.pitch = s.yaw = s.roll = s.jump = s.boost = 0
+        s.powerslide = s.ljump = 0
 
-    # converting the veloctites to local coordinates
-    self.pitch_vel, self.roll_vel, self.yaw_vel = local(self.player_angvel, ZEROS3, self.player_rot)
-    self.player_local_vel = local(self.player_vel, ZEROS3, self.player_rot)
-    self.player_vel_mag, self.player_vel_yaw_ang, self.player_vel_pitch_ang = spherical(*self.player_local_vel)
+        s.aT = s.gT = s.sjT = s.djT = s.time
 
-    # approximate turning radius
-    self.player_radius = turning_radius(dist2d(self.player_local_vel))
+        s.dodge = s.jumper = 0
 
-    self.color = -sign(self.player.Team)
-    self.goal = a3([0, FIELD_LENGTH / 2 * self.color, 0])
+        feedback(s)
+
+    if s.poG and not s.lpoG:
+        s.gT = s.time
+    if s.lpoG and not s.poG:
+        s.aT = s.time
+
+    s.airtime = s.time - s.aT
+    s.gtime = s.time - s.gT
+    s.djtime = s.time - s.djT
+
+    if s.lljump and not s.ljump or s.airtime > 0.2:
+        s.sjT = s.ltime
+
+    s.sjtime = s.time - s.sjT
+
+    if s.poG:
+        s.airtime = s.sjtime = s.djtime = 0
+    else:
+        s.gtime = 0
+
+    if s.poG:
+        s.jcount = 2
+    elif s.pdJ or (s.sjtime > 1.25 and s.pJ):
+        s.jcount = 0
+    else:
+        s.jcount = 1
+
+    if s.jcount == 0 or s.poG:
+        s.dodge = s.jumper = 0
+
+    s.dtime = s.time - s.ltime
+    if s.dtime != 0:
+        s.fps = 1 / s.dtime
+    else:
+        s.fps = 0
+
+    oppIndex = not s.index
+
+    if game.numCars > 2:  # use closest opponent to the ball
+        oppIndex = -1
+        for i in range(game.numCars):
+            if game.gamecars[i].Team != s.player.Team:
+                if oppIndex == -1 or (dist3d(a3(game.gamecars[i].Location), s.bL) <
+                                      dist3d(a3(game.gamecars[oppIndex].Location),
+                                             s.bL)):
+                    oppIndex = i
+
+    if oppIndex < game.numCars:
+        opp = game.gamecars[oppIndex]
+        s.oL = a3(opp.Location)
+        s.oV = a3(opp.Velocity)
+        s.oR = a3(opp.Rotation)
+    else:
+        s.oL = s.oV = s.oR = np.zeros(3) + 3e3
+
+    s.obd = dist3d(s.bL, s.oL)
+
+    s.goal = a3([0, max(Ph.wy, abs(s.bL[1]) + 1) * s.color, 300])
+    s.ogoal = a3([0, -max(Ph.wy, abs(s.bL[1]) + 1) * s.color, 300])
+    s.behind = dist3d(s.ogoal, s.pL) > dist3d(s.ogoal, s.bL) or dist3d(s.goal, s.pL) < dist3d(s.goal, s.bL)
 
 
-def feedback(self):
+def feedback(s):
 
-    self.last_throttle, self.last_steer = self.throttle, self.steer
-    self.last_pitch, self.last_yaw, self.last_roll = self.pitch, self.yaw, self.roll
-    self.last_jump, self.last_boost, self.last_powersilde = self.jump, self.boost, self.powerslide
+    s.ltime = s.time
+    s.lpoG = s.poG
 
-    self.counter += 1
+    s.lljump = s.ljump
 
+    s.lthrottle, s.lsteer = s.throttle, s.steer
+    s.lpitch, s.lyaw, s.lroll = s.pitch, s.yaw, s.roll
+    s.ljump, s.lboost, s.lpowerslide = s.jump, s.boost, s.powerslide
 
-def finish(self):
+    s.counter += 1
 
-    if self.counter % 2:
-        self.gui.update(self.game, self)
-
-    self.path.update(self)
-    '''
-    if len(self.path.lines) != 0 and hasattr(self, "line"):
-
-        if dist3d(self.player_loc, self.line.start) < 99:
-            self.line.started = True
-        
-        
-        if self.line.started and dist2d(self.player_loc, self.line.end) < 99:
-            self.line.finished = True
-            self.path.delete(self)
-    '''
+    if hasattr(s, "gui") and s.counter % 4 == 1:
+        s.gui.update(s)

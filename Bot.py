@@ -1,18 +1,24 @@
 import Procedure
-import Strategy
 import Handling
+import Strategy
 
 
-def Process(self, game):
+def Process(s, game, version=3):
+    """Main Loop."""
 
-    Procedure.pre_process(self, game)
+    Procedure.pre_process(s, game)
 
-    Strategy.plan(self)
+    Strategy.plan(s)
+    Handling.controls(s)
 
-    Handling.controls(self)
+    Procedure.feedback(s)
 
-    Procedure.feedback(self)
+    # Testing.graph_path(s)
 
-    Procedure.finish(self)
+    return output(s, version)
 
-    return Handling.output(self)
+
+def output(s, version):
+    """Return bot controls"""
+
+    return [s.throttle, s.steer, s.pitch, s.yaw, s.roll, s.jump, s.boost, s.powerslide]
