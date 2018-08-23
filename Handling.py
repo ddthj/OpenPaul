@@ -3,11 +3,14 @@ from PD import *
 
 
 def controls(self):
+    #All of Paul's targets and plans are already set into variables from Strategy.plan, so all we are doing here is feeding
+    #that info into our PD controls
 
     self.powerslide = 0
 
     #SlowDown(self)
-
+    
+    #Paul uses PD control
     self.steer = steer_from_angle(self.target_yaw_ang, self.yaw_vel, PI)
 
     self.throttle = throttle_velocity(self.player_local_vel[1], self.desired_speed, self.last_throttle)

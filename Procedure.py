@@ -1,7 +1,7 @@
 from util import *
 
 
-def pre_process(self, game):
+def pre_process(self, game): #Turns gamepacket into more useful values
 
     self.game = game
     self.player = game.gamecars[self.index]
@@ -52,10 +52,14 @@ def feedback(self):
 
 def finish(self):
 
-    if self.counter % 2:
+    if self.counter % 2:#Just throttles the GUI to maintain FPS of the actual bot code
         self.gui.update(self.game, self)
+        
+    #Some paths are dynamic, meaning they change depending on the game conditions
+    #This is where the path is updated from    
+    self.path.update(self) 
 
-    self.path.update(self)
+    #An old method for deleting a user-drawn path after it has been completed 
     '''
     if len(self.path.lines) != 0 and hasattr(self, "line"):
 

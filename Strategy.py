@@ -5,14 +5,23 @@ from copy import deepcopy
 
 def plan(self):
 
+    #This is where we would perform logic for choosing a good path to follow
+    #The preset paths are all dynamic paths, meaning they adjust to fit the situation
+    #(but still follow some specific rules which make them distinct)
+    
+    #Right now there is only one dynamic path programmed in (basicShot)
+    
     if not hasattr(self, "path"):  # use path when there is none, not when it's empty
-        self.path = deepcopy(pathTypes.basicShot)
+        self.path = deepcopy(pathTypes.basicShot) #the deepcopy ensures we're not reusing a finished path
 
     if len(self.path.lines) != 0:
         Follow_Line(self)
 
 
 def Follow_Line(self):
+     #Paths are made up of lines, once we have a path we grab the first line and begin to follow it
+    #Instead of returning, this just sets up the variables of Paul so that the controller already has everything it needs to know
+    
     self.line = self.path.get_line()
     if len(self.path.lines)-1 > self.path.lines.index(self.line):
         self.next_line = self.path.lines[self.path.lines.index(self.line)+1]

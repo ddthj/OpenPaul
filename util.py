@@ -94,7 +94,7 @@ def line_projection(line_point1, line_point2, point):
     return x4, y4
 
 
-# transforms global/world into local coordinates
+# transforms global/world into local coordinates, see rlbot start-to-finish tutorials for a better method :)
 def local(tL, oL, oR, Urot=True):
     L = tL - oL
     if Urot:

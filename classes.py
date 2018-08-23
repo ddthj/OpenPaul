@@ -1,7 +1,7 @@
 from util import *
 
 
-# list of lines
+# A path is really just a list of lines
 class path:
     def __init__(self, lines=None):
         if lines is not None:
@@ -13,15 +13,13 @@ class path:
         for index, line in enumerate(self.lines):
             line.update(line, agent, index)
 
-    # returns the start and end points of the first line that hasn't "finished"
-    def get_points(self):
+    def get_points(self): # returns the start and end points of the first line that hasn't "finished"
         for item in self.lines:
             if not item.finished:
                 return (item.start, item.end)
         return self.lines[-1].start, self.lines[-1].end
 
-    def get_line(self, current=True):
-        # returns the entire line, not just the points
+    def get_line(self, current=True): # returns the entire line, not just the points
         # setting current to False will cause it to get the next line instead of the current one
         for line in self.lines:
             if not line.finished and current is True:
@@ -52,7 +50,7 @@ class path:
                 break
 
 
-# line
+# Contains all the information about a line
 class line:
     def __init__(self, start=ZEROS3, end=ZEROS3, speed=MAX_CAR_SPEED):
         self.start = start
@@ -73,7 +71,7 @@ class line:
         return temp.speed
 
 
-# event
+#Events currently only support speed editing, they should be able to handle dodging though
 class Event():
     def __init__(self, distance, speed=MAX_CAR_SPEED, anchored=False):
         self.distance = distance
